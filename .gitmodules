@@ -1,0 +1,3 @@
+[submodule "libnrf"]
+	path = libnrf
+	url = https://github.com/lolotan/libnrf.git
