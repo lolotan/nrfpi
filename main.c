@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 #include "libnrf/libnrf.h"
 
 void test_send(void)
@@ -13,6 +14,7 @@ void test_send(void)
 	char status;
 	char regval;
 	int  ret;
+	int  PollCounter;
 	char testbuffer[32];
 	const char * teststr = "Hello World !";
 
@@ -25,12 +27,33 @@ void test_send(void)
 
 	memcpy(testbuffer, teststr, strlen(teststr));
 	printf("Test buffer : %s\n", testbuffer);
-
+	ret = nrf_set_datapipe_length(P0, 32, &status);
+	char DataPipeLength;
+	nrf_read_register(RX_PW_P0, &DataPipeLength, &status);
+	printf("Data pipe 0 length : %d\n", (int)DataPipeLength);
+	
 	ret = nrf_write_tx_payload(testbuffer, 32, &status);
-
+	ret = nrf_set_auto_retransmit_count(15, &status);
+	ret = nrf_set_auto_retransmit_delay(15, &status);
 	nrf_tx_payload();
 	printf("Payload transmitted\n");
+	for (PollCounter = 0 ; PollCounter < 2000 ; PollCounter++)
+	{
+		nrf_get_status(&status);
 
+		if ((status & TX_DS) == TX_DS)
+		{
+			nrf_clear_tx_ds(&status);
+			break;
+		}
+
+		if ((status & MAX_RT) == MAX_RT)
+		{
+			nrf_clear_max_rt(&status);
+			break;
+		}
+		usleep(10);
+	}
 	ret = nrf_get_status(&status);
 	nrf_display_status(status);
 
@@ -57,8 +80,11 @@ void test_receive(void)
 	ret = nrf_set_mode_prx(&status);
 	ret = nrf_read_register(CONFIG, &regval, &status);
 	printf("CONFIG Value : %02X\n", regval);
-	regval = 0x20;
+	
 	ret = nrf_set_datapipe_length(P0, 32, &status);
+	char DataPipeLength;
+	nrf_read_register(RX_PW_P0, &DataPipeLength, &status);
+	printf("Data pipe 0 length : %d\n", (int)DataPipeLength);
 	
 	nrf_start_rx();
 
@@ -94,20 +120,18 @@ int main(int argc, char *argv[])
 
 	printf("*** Test nrf lib ***\n");
     ret  = nrf_init();
-    ret  = nrf_set_power_mode(POWER_ON, &status);
     ret += nrf_clear_rx_dr(&status);
     ret += nrf_clear_max_rt(&status);
     ret += nrf_clear_tx_ds(&status);
-
+    ret += nrf_set_rx_address(P0, addr, &status);
+    ret += nrf_flush_tx(&status);
+    ret += nrf_flush_rx(&status);
+	ret += nrf_set_power_mode(POWER_ON, &status);
     printf("Initialisation done - ret : %d\n", ret);
 
     ret = nrf_get_status(&status);
     nrf_display_status(status);
-
-
-    ret = nrf_flush_tx(&status);
-    ret = nrf_flush_rx(&status);
-
+   
     if (strcmp(argv[1],"TX") == 0)
     {
 		test_send();

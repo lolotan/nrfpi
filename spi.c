@@ -26,7 +26,6 @@ static uint16_t spi_delay;
 // MSBit to LSBit / LSByte to MSByte / 8 bit command set / 0-8Mbps
 int  spi_init()
 {
-	int          ret;	
 	uint8_t      spi_mode;
 	const char * spi_device = SPI_DEVICE;
 	
@@ -35,21 +34,40 @@ int  spi_init()
 	spi_delay = 0;
 	spi_mode  = 0;
 	
-	fd = open(spi_device, O_RDWR);	
-	ret = ioctl(fd, SPI_IOC_WR_MODE, &spi_mode);	
-	ret = ioctl(fd, SPI_IOC_RD_MODE, &spi_mode);	
-	ret = ioctl(fd, SPI_IOC_WR_BITS_PER_WORD, &spi_bits);	
-	ret = ioctl(fd, SPI_IOC_RD_BITS_PER_WORD, &spi_bits);
-	ret = ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &spi_speed);
-	ret = ioctl(fd, SPI_IOC_RD_MAX_SPEED_HZ, &spi_speed);
+	fd = open(spi_device, O_RDWR);
+	if (fd < 0) {
+		return SPI_ERROR;
+	}
+	if (ioctl(fd, SPI_IOC_WR_MODE, &spi_mode) < 0) {
+		return SPI_ERROR;
+	}
 	
-	return ret;
+	if (ioctl(fd, SPI_IOC_RD_MODE, &spi_mode) < 0) {
+		return SPI_ERROR;
+	}
+	
+	if (ioctl(fd, SPI_IOC_WR_BITS_PER_WORD, &spi_bits) < 0) {
+		return SPI_ERROR;
+	}
+	
+	if (ioctl(fd, SPI_IOC_RD_BITS_PER_WORD, &spi_bits) < 0) {
+		return SPI_ERROR;
+	}
+	
+	if (ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &spi_speed) < 0) {
+		return SPI_ERROR;
+	}
+	
+	if (ioctl(fd, SPI_IOC_RD_MAX_SPEED_HZ, &spi_speed) < 0) {
+		return SPI_ERROR;
+	}
+	
+	return SPI_SUCCESS;
 }
 
 
 int spi_send_command(char command, char * retstatus)
-{
-    int ret;
+{    
 	struct spi_ioc_transfer tr = {
 		.tx_buf = (unsigned long)&command,
 		.rx_buf = (unsigned long)retstatus,
@@ -58,14 +76,17 @@ int spi_send_command(char command, char * retstatus)
 		.speed_hz = spi_speed,
 		.bits_per_word = spi_bits,
 	};
-    ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
-	return ret;
+	
+	if (ioctl(fd, SPI_IOC_MESSAGE(1), &tr) < 0) {
+		return SPI_ERROR;
+	} else {
+		return SPI_SUCCESS;
+	}
 }
 
 
 int spi_command_write(char command, char * writebuffer, int length, char * retstatus)
 {
-    int ret;
 	struct spi_ioc_transfer spictrl[2];
     memset(spictrl, 0x00, sizeof(spictrl));
 	// Command Struct
@@ -83,13 +104,16 @@ int spi_command_write(char command, char * writebuffer, int length, char * retst
 	spictrl[1].delay_usecs = spi_delay;
 	spictrl[1].speed_hz = spi_speed;
 	spictrl[1].bits_per_word = spi_bits;
-	ret = ioctl(fd, SPI_IOC_MESSAGE(2), &spictrl);
-	return ret;
+	
+	if (ioctl(fd, SPI_IOC_MESSAGE(2), &spictrl) < 0) {
+		return SPI_ERROR;
+	} else {
+		return SPI_SUCCESS;
+	}
 }
 
 int	spi_command_read(char command, char * readbuffer, int length, char * retstatus)
 {
-    int ret;
     struct spi_ioc_transfer spictrl[2];
     memset(spictrl, 0x00, sizeof(spictrl));
 	// Command Struct
@@ -107,6 +131,10 @@ int	spi_command_read(char command, char * readbuffer, int length, char * retstat
 	spictrl[1].delay_usecs = spi_delay;
 	spictrl[1].speed_hz = spi_speed;
 	spictrl[1].bits_per_word = spi_bits;
-	ret = ioctl(fd, SPI_IOC_MESSAGE(2), &spictrl);
-	return ret;
+
+	if (ioctl(fd, SPI_IOC_MESSAGE(2), &spictrl) < 0) {
+		return SPI_ERROR;
+	} else {
+		return SPI_SUCCESS;
+	}
 }
